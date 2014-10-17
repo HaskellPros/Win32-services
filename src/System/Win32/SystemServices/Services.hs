@@ -1,6 +1,7 @@
 module System.Win32.SystemServices.Services
     ( HandlerFunction
     , ServiceMainFunction
+    , SCM_ACCESS_RIGHTS (..)
     , SERVICE_ACCEPT (..)
     , SERVICE_CONTROL (..)
     , SERVICE_STATE (..)
@@ -8,8 +9,13 @@ module System.Win32.SystemServices.Services
     , SERVICE_TYPE (..)
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
+    , closeServiceHandle
+    , controlService
+    , openSCMangerDef
+    , openService
     , queryServiceStatus
     , setServiceStatus
+    , startServiceWithOutArgs
     , startServiceCtrlDispatcher
     ) where
 
@@ -19,6 +25,7 @@ import Foreign
 import System.Win32.Types
 
 import System.Win32.SystemServices.Services.Raw
+import System.Win32.SystemServices.Services.SCM_ACCESS_RIGHTS as AR
 import System.Win32.SystemServices.Services.SERVICE_ACCEPT
 import System.Win32.SystemServices.Services.SERVICE_CONTROL
 import qualified System.Win32.SystemServices.Services.SERVICE_CONTROL as SC
@@ -45,6 +52,26 @@ type HandlerFunction = HANDLE -> SERVICE_CONTROL -> IO Bool
 --   initialization steps before setting the service's status to
 --   'RUNNING'. All of this should take no more than 100ms.
 type ServiceMainFunction = String -> [String] -> HANDLE -> IO ()
+
+closeServiceHandle :: HANDLE -> IO ()
+closeServiceHandle =
+    failIfFalse_ (unwords ["CloseServiceHandle"]) . c_CloseServiceHandle
+
+controlService :: HANDLE -> SERVICE_CONTROL -> IO SERVICE_STATUS
+controlService h c = alloca $ \pStatus -> do
+    failIfFalse_ (unwords ["ControlService"])
+        $ c_ControlService h (SC.toDWORD c) pStatus
+    peek pStatus
+
+openSCMangerDef :: SCM_ACCESS_RIGHTS -> IO HANDLE
+openSCMangerDef ar =
+    failIfNull (unwords ["OpenSCManager"])
+        $ c_OpenSCManager nullPtr nullPtr (AR.toDWORD ar)
+
+openService :: HANDLE -> String -> SCM_ACCESS_RIGHTS -> IO HANDLE
+openService h n ar =
+    withTString n $ \lpcwstr -> failIfNull (unwords ["OpenService", n])
+        $ c_OpenService h lpcwstr (AR.toDWORD ar)
 
 -- |Retrieves the current status of the specified service.
 queryServiceStatus :: HANDLE
@@ -103,6 +130,11 @@ setServiceStatus h status =
     with status $ \pStatus -> do
     failIfFalse_ (unwords ["SetServiceStatus", show h, show status])
         $ c_SetServiceStatus h pStatus
+
+startServiceWithOutArgs :: HANDLE -> IO ()
+startServiceWithOutArgs h =
+    failIfFalse_ (unwords ["StartService"])
+        $ c_StartService h 0 nullPtr
 
 -- |Register a callback function to initialize the service, which will be
 -- called by the operating system immediately. startServiceCtrlDispatcher

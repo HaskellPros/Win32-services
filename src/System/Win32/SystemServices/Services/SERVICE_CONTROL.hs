@@ -3,6 +3,7 @@ module System.Win32.SystemServices.Services.SERVICE_CONTROL
     , peekServiceControl
     , pokeServiceControl
     , fromDWORD
+    , toDWORD
     ) where
 
 import Foreign
