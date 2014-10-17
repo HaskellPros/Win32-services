@@ -11,12 +11,13 @@ module System.Win32.SystemServices.Services
     , eRROR_SERVICE_SPECIFIC_ERROR
     , closeServiceHandle
     , controlService
-    , openSCMangerDef
+    , openSCManagerDef
     , openService
     , queryServiceStatus
     , setServiceStatus
     , startServiceWithOutArgs
     , startServiceCtrlDispatcher
+    , withHandle
     ) where
 
 import Control.Exception
@@ -63,8 +64,8 @@ controlService h c = alloca $ \pStatus -> do
         $ c_ControlService h (SC.toDWORD c) pStatus
     peek pStatus
 
-openSCMangerDef :: SCM_ACCESS_RIGHTS -> IO HANDLE
-openSCMangerDef ar =
+openSCManagerDef :: SCM_ACCESS_RIGHTS -> IO HANDLE
+openSCManagerDef ar =
     failIfNull (unwords ["OpenSCManager"])
         $ c_OpenSCManager nullPtr nullPtr (AR.toDWORD ar)
 
@@ -200,3 +201,6 @@ toHandlerEx h f = \dwControl _ _ _ ->
             _ -> return $ if handled then nO_ERROR
                                      else eRROR_CALL_NOT_IMPLEMENTED
       Left _ -> return eRROR_CALL_NOT_IMPLEMENTED
+
+withHandle :: IO HANDLE -> (HANDLE -> IO a) -> IO a
+withHandle before = bracket before closeServiceHandle
