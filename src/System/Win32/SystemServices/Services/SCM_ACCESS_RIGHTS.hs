@@ -12,8 +12,6 @@ import Foreign
 import System.Win32.Types
 import Text.Printf
 
-import Control.Error
-
 data SCM_ACCESS_RIGHTS
   = ALL_ACCESS
   | CREATE_SERVICE
@@ -48,6 +46,10 @@ fromDWORD 0x00000008 = Right LOCK
 fromDWORD 0x00000020 = Right MODIFY_BOOT_CONFIG
 fromDWORD 0x00000010 = Right QUERY_LOCK_STATUS
 fromDWORD x = Left $ "The " ++ printf "%x" x ++ " control code is unsupported by this binding."
+
+-- | Suppress the 'Left' value of an 'Either'
+hush :: Either a b -> Maybe b
+hush = either (const Nothing) Just
 
 unflag :: DWORD -> [SCM_ACCESS_RIGHTS]
 unflag f = mapMaybe (hush . fromDWORD . (.&. f)) masks
