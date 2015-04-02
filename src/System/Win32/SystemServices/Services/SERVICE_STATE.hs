@@ -7,11 +7,9 @@ module System.Win32.SystemServices.Services.SERVICE_STATE
     , pokeServiceState
     ) where
 
-import Foreign
-import System.Win32.Types
 import Text.Printf
 
-import Control.Error
+import Import
 
 nO_ERROR :: ErrCode
 nO_ERROR = 0
@@ -47,10 +45,8 @@ toDWORD CONTINUE_PENDING = 0x00000005
 toDWORD PAUSE_PENDING    = 0x00000006
 toDWORD PAUSED           = 0x00000007
 
-peekServiceState :: Ptr DWORD -> Script SERVICE_STATE
-peekServiceState ptr = do
-    dword <- scriptIO $ peek ptr
-    hoistEither $ fromDWORD dword
+peekServiceState :: Ptr DWORD -> IO (Either String SERVICE_STATE)
+peekServiceState ptr = fromDWORD <$> peek ptr
 
 pokeServiceState :: Ptr DWORD -> SERVICE_STATE -> IO ()
 pokeServiceState ptr sc = poke ptr . toDWORD $ sc
