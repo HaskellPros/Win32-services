@@ -13,9 +13,10 @@ module System.Win32.SystemServices.Services
     , controlService
     , openSCManagerDef
     , openService
+    , openService'
     , queryServiceStatus
     , setServiceStatus
-    , startServiceWithOutArgs
+    , startServiceWithoutArgs
     , startServiceCtrlDispatcher
     , withHandle
     ) where
@@ -26,6 +27,7 @@ import Control.Monad.Fix
 import Import
 import System.Win32.SystemServices.Services.Raw
 import System.Win32.SystemServices.Services.SCM_ACCESS_RIGHTS as AR
+import System.Win32.SystemServices.Services.SVC_ACCESS_RIGHTS as SV
 import System.Win32.SystemServices.Services.SERVICE_ACCEPT
 import System.Win32.SystemServices.Services.SERVICE_CONTROL
 import qualified System.Win32.SystemServices.Services.SERVICE_CONTROL as SC
@@ -68,10 +70,43 @@ openSCManagerDef ar =
     failIfNull (unwords ["OpenSCManager"])
         $ c_OpenSCManager nullPtr nullPtr (AR.toDWORD ar)
 
-openService :: HANDLE -> String -> SCM_ACCESS_RIGHTS -> IO HANDLE
-openService h n ar =
+_openService :: HANDLE -> String -> DWORD -> IO HANDLE
+_openService h n ar =
     withTString n $ \lpcwstr -> failIfNull (unwords ["OpenService", n])
-        $ c_OpenService h lpcwstr (AR.toDWORD ar)
+        $ c_OpenService h lpcwstr ar
+
+-- |Opens an existing service.
+openService :: HANDLE
+    -- ^ MSDN documentation: A handle to the service control manager
+    -- database. The OpenSCManager function returns this handle. 
+    -> String
+    -- ^ MSDN documentation: The name of the service to be opened. This is
+    -- the name specified by the lpServiceName parameter of the CreateService
+    -- function when the service object was created, not the service display
+    -- name that is shown by user interface applications to identify the service. 
+    -> SVC_ACCESS_RIGHTS
+    -- ^ The list of access rights for a service.
+    -> IO HANDLE
+    -- ^ This function will raise an exception if the Win32 call returned an
+    -- error condition.openService h n ar =
+openService h n ar = _openService h n (SV.toDWORD ar)
+    
+-- |Opens an existing service with list of access rights.
+openService' :: HANDLE
+    -- ^ MSDN documentation: A handle to the service control manager
+    -- database. The OpenSCManager function returns this handle. 
+    -> String
+    -- ^ MSDN documentation: The name of the service to be opened. This is
+    -- the name specified by the lpServiceName parameter of the CreateService
+    -- function when the service object was created, not the service display
+    -- name that is shown by user interface applications to identify the service. 
+    -> [SVC_ACCESS_RIGHTS]
+    -- ^ The list of access rights for a service.
+    -> IO HANDLE
+    -- ^ This function will raise an exception if the Win32 call returned an
+    -- error condition.    
+openService' h n ars =
+    _openService h n (SV.flag ars)
 
 -- |Retrieves the current status of the specified service.
 queryServiceStatus :: HANDLE
@@ -131,8 +166,12 @@ setServiceStatus h status =
     failIfFalse_ (unwords ["SetServiceStatus", show h, show status])
         $ c_SetServiceStatus h pStatus
 
-startServiceWithOutArgs :: HANDLE -> IO ()
-startServiceWithOutArgs h =
+-- |Starts a service.
+startServiceWithoutArgs :: HANDLE -> IO ()
+    -- ^ MSDN documentation: A handle to the service. This handle is returned
+    -- by the OpenService or CreateService function, and it must have the
+    -- SERVICE_START access right.
+startServiceWithoutArgs h =
     failIfFalse_ (unwords ["StartService"])
         $ c_StartService h 0 nullPtr
 
