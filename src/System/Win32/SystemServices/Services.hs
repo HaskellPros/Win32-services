@@ -2,11 +2,14 @@ module System.Win32.SystemServices.Services
     ( HandlerFunction
     , ServiceMainFunction
     , SCM_ACCESS_RIGHTS (..)
+    , SVC_ACCESS_RIGHTS (..)
     , SERVICE_ACCEPT (..)
     , SERVICE_CONTROL (..)
+    , SERVICE_ERROR (..)
     , SERVICE_STATE (..)
     , SERVICE_STATUS (..)
     , SERVICE_TYPE (..)
+    , FromDWORD (..)
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
     , closeServiceHandle
@@ -30,6 +33,7 @@ import System.Win32.SystemServices.Services.SCM_ACCESS_RIGHTS as AR
 import System.Win32.SystemServices.Services.SVC_ACCESS_RIGHTS as SV
 import System.Win32.SystemServices.Services.SERVICE_ACCEPT
 import System.Win32.SystemServices.Services.SERVICE_CONTROL
+import System.Win32.SystemServices.Services.SERVICE_ERROR
 import qualified System.Win32.SystemServices.Services.SERVICE_CONTROL as SC
 import System.Win32.SystemServices.Services.SERVICE_STATE
 import System.Win32.SystemServices.Services.SERVICE_STATUS

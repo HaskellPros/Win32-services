@@ -8,6 +8,7 @@ import Data.Bits
 import Data.Maybe
 import System.Win32.Types
 import Text.Printf
+import Import
 
 data SVC_ACCESS_RIGHTS
   = SVC_AR_ALL_ACCESS
@@ -46,10 +47,6 @@ fromDWORD 0x00000010 = Right SVC_AR_START
 fromDWORD 0x00000020 = Right SVC_AR_STOP
 fromDWORD 0x00000100 = Right SVC_AR_USER_DEFINED_CONTROL
 fromDWORD x = Left $ "The " ++ printf "%x" x ++ " control code is unsupported by this binding."
-
--- | Suppress the 'Left' value of an 'Either'
-hush :: Either a b -> Maybe b
-hush = either (const Nothing) Just
 
 unflag :: DWORD -> [SVC_ACCESS_RIGHTS]
 unflag f = mapMaybe (hush . fromDWORD . (.&. f)) masks

@@ -122,6 +122,7 @@ library
                , System.Win32.SystemServices.Services.Types
                , System.Win32.SystemServices.Services.SERVICE_ACCEPT
                , System.Win32.SystemServices.Services.SERVICE_CONTROL
+               , System.Win32.SystemServices.Services.SERVICE_ERROR
                , System.Win32.SystemServices.Services.SERVICE_STATE
                , System.Win32.SystemServices.Services.SERVICE_TYPE
                , System.Win32.SystemServices.Services.SCM_ACCESS_RIGHTS
