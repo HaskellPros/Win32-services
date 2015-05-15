@@ -17,6 +17,8 @@ data SERVICE_ERROR
   |  ERROR_SERVICE_NOT_ACTIVE
   |  ERROR_SERVICE_REQUEST_TIMEOUT
   |  ERROR_SHUTDOWN_IN_PROGRESS
+  |  ERROR_INVALID_NAME
+  |  ERROR_SERVICE_DOES_NOT_EXIST
   deriving (Show)
 
 instance FromDWORD SERVICE_ERROR where
@@ -31,4 +33,6 @@ instance FromDWORD SERVICE_ERROR where
     0x00000426 -> Right ERROR_SERVICE_NOT_ACTIVE
     0x0000041D -> Right ERROR_SERVICE_REQUEST_TIMEOUT
     0x0000045B -> Right ERROR_SHUTDOWN_IN_PROGRESS
+    0x0000007B -> Right ERROR_INVALID_NAME
+    0x00000424 -> Right ERROR_SERVICE_DOES_NOT_EXIST
     _          -> Left $ "The " ++ printf "%x" x ++ " error code is unsupported by this bindign."
