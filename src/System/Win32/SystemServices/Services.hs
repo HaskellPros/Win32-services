@@ -10,6 +10,8 @@ module System.Win32.SystemServices.Services
     , SERVICE_STATUS (..)
     , SERVICE_TYPE (..)
     , FromDWORD (..)
+    , EnumServiceState (..)
+    , EnumServiceStatus (..)
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
     , closeServiceHandle
@@ -22,10 +24,13 @@ module System.Win32.SystemServices.Services
     , startServiceWithoutArgs
     , startServiceCtrlDispatcher
     , withHandle
+    , enumDependentServices
     ) where
 
 import Control.Exception
+import Control.Monad (when, unless)
 import Control.Monad.Fix
+import Foreign.C.String (peekCWString)
 
 import Import
 import System.Win32.SystemServices.Services.Raw
@@ -82,33 +87,33 @@ _openService h n ar =
 -- |Opens an existing service.
 openService :: HANDLE
     -- ^ MSDN documentation: A handle to the service control manager
-    -- database. The OpenSCManager function returns this handle. 
+    -- database. The OpenSCManager function returns this handle.
     -> String
     -- ^ MSDN documentation: The name of the service to be opened. This is
     -- the name specified by the lpServiceName parameter of the CreateService
     -- function when the service object was created, not the service display
-    -- name that is shown by user interface applications to identify the service. 
+    -- name that is shown by user interface applications to identify the service.
     -> SVC_ACCESS_RIGHTS
     -- ^ The list of access rights for a service.
     -> IO HANDLE
     -- ^ This function will raise an exception if the Win32 call returned an
     -- error condition.openService h n ar =
 openService h n ar = _openService h n (SV.toDWORD ar)
-    
+
 -- |Opens an existing service with list of access rights.
 openService' :: HANDLE
     -- ^ MSDN documentation: A handle to the service control manager
-    -- database. The OpenSCManager function returns this handle. 
+    -- database. The OpenSCManager function returns this handle.
     -> String
     -- ^ MSDN documentation: The name of the service to be opened. This is
     -- the name specified by the lpServiceName parameter of the CreateService
     -- function when the service object was created, not the service display
-    -- name that is shown by user interface applications to identify the service. 
+    -- name that is shown by user interface applications to identify the service.
     -> [SVC_ACCESS_RIGHTS]
     -- ^ The list of access rights for a service.
     -> IO HANDLE
     -- ^ This function will raise an exception if the Win32 call returned an
-    -- error condition.    
+    -- error condition.
 openService' h n ars =
     _openService h n (SV.flag ars)
 
@@ -249,3 +254,38 @@ toHandlerEx h f = \dwControl _ _ _ ->
 
 withHandle :: IO HANDLE -> (HANDLE -> IO a) -> IO a
 withHandle before = bracket before closeServiceHandle
+
+data EnumServiceStatus = EnumServiceStatus
+  { enumServiceName   :: String
+  , enumDisplayName   :: String
+  , enumServiceStatus :: SERVICE_STATUS
+  }
+
+enumDependentServices :: HANDLE -> EnumServiceState -> IO [EnumServiceStatus]
+enumDependentServices hService ess =
+    alloca $ \pcbBytesNeeded ->
+    alloca $ \lpServicesReturned -> do
+      res <- c_EnumDependentServices hService (enumServiceStateToDWORD ess)
+        nullPtr 0 pcbBytesNeeded lpServicesReturned
+      if res
+        then return [] -- The only case when call without a buffer succeeds is when no buffer is needed.
+        else do
+          lastErr <- getLastError
+          unless (lastErr == eRROR_MORE_DATA) $
+            failWith "EnumDependentServices" lastErr
+          bytesNeeded <- peek pcbBytesNeeded
+          allocaBytes (fromIntegral bytesNeeded) $ \lpServices -> do
+            failIfFalse_ "EnumDependentServices" $ c_EnumDependentServices hService (enumServiceStateToDWORD ess)
+              lpServices bytesNeeded pcbBytesNeeded lpServicesReturned
+            actualServices <- peek lpServicesReturned
+            rawStatuses <- peekArray (fromIntegral actualServices) lpServices
+            mapM rawEssToEss rawStatuses
+  where
+    rawEssToEss rawEss = do
+      svcName <- peekCWString $ rawESSServiceName rawEss
+      dispName <- peekCWString $ rawESSDisplayName rawEss
+      return EnumServiceStatus
+        { enumServiceName = svcName
+        , enumDisplayName = dispName
+        , enumServiceStatus = rawESSServiceStatus rawEss
+        }

@@ -7,6 +7,8 @@ import System.Win32.SystemServices.Services.SERVICE_STATUS
 import System.Win32.SystemServices.Services.SERVICE_TABLE_ENTRY
 import System.Win32.SystemServices.Services.Types
 
+#include <windows.h>
+
 foreign import stdcall "wrapper"
     smfToFunPtr :: SERVICE_MAIN_FUNCTION -> IO LPSERVICE_MAIN_FUNCTION
 
@@ -67,3 +69,48 @@ foreign import stdcall "windows.h StartServiceW"
 
 foreign import stdcall "windows.h StartServiceCtrlDispatcherW"
     c_StartServiceCtrlDispatcher :: Ptr SERVICE_TABLE_ENTRY -> IO BOOL
+
+data RawEnumServiceStatus = RawEnumServiceStatus
+  { rawESSServiceName   :: LPWSTR
+  , rawESSDisplayName   :: LPWSTR
+  , rawESSServiceStatus :: SERVICE_STATUS
+  } deriving (Show)
+
+instance Storable RawEnumServiceStatus where
+  sizeOf _ = #{size ENUM_SERVICE_STATUS}
+  alignment _ = alignment (undefined :: DWORD)
+  poke p x = do
+    #{poke ENUM_SERVICE_STATUS, lpServiceName} p $ rawESSServiceName x
+    #{poke ENUM_SERVICE_STATUS, lpDisplayName} p $ rawESSDisplayName x
+    #{poke ENUM_SERVICE_STATUS, ServiceStatus} p $ rawESSServiceStatus x
+  peek p = RawEnumServiceStatus
+    <$> #{peek ENUM_SERVICE_STATUS, lpServiceName} p
+    <*> #{peek ENUM_SERVICE_STATUS, lpDisplayName} p
+    <*> #{peek ENUM_SERVICE_STATUS, ServiceStatus} p
+
+data EnumServiceState
+  = EnumServiceActive
+  | EnumServiceInactive
+  | EnumServiceAll
+  deriving (Eq, Show)
+
+enumServiceStateToDWORD :: EnumServiceState -> DWORD
+enumServiceStateToDWORD x = case x of
+  EnumServiceActive -> #{const SERVICE_ACTIVE}
+  EnumServiceInactive -> #{const SERVICE_INACTIVE}
+  EnumServiceAll -> #{const SERVICE_STATE_ALL}
+
+-- BOOL WINAPI EnumDependentServices(
+--   _In_      SC_HANDLE             hService,
+--   _In_      DWORD                 dwServiceState,
+--   _Out_opt_ LPENUM_SERVICE_STATUS lpServices,
+--   _In_      DWORD                 cbBufSize,
+--   _Out_     LPDWORD               pcbBytesNeeded,
+--   _Out_     LPDWORD               lpServicesReturned
+-- );
+foreign import stdcall "windows.h EnumDependentServicesW"
+    c_EnumDependentServices :: HANDLE -> DWORD -> Ptr RawEnumServiceStatus
+      -> DWORD -> Ptr DWORD -> Ptr DWORD -> IO BOOL
+
+eRROR_MORE_DATA :: DWORD
+eRROR_MORE_DATA = #{const ERROR_MORE_DATA}
