@@ -1,10 +1,5 @@
 module System.Win32.SystemServices.Services.SERVICE_STATUS where
 
--- These two imports are here to preserve existing behavior now that
--- the dependency on "errors" has been dropped.
-import System.Exit
-import System.IO
-
 import Import
 import System.Win32.SystemServices.Services.SERVICE_ACCEPT
 import System.Win32.SystemServices.Services.SERVICE_STATE
@@ -59,45 +54,24 @@ data SERVICE_STATUS = SERVICE_STATUS
     --   services sharing the process as well.
     } deriving (Show)
 
+#include <Windows.h>
+
 instance Storable SERVICE_STATUS where
-  sizeOf _ = 28
-  alignment _ = 4
-  peek ptr = do
-      -- This block is not ideal. It is here to preserve backwards
-      -- compatibility with former behavior, and will be replaced in a future
-      -- version. We used to wrap peekServiceType and peekServiceState in
-      -- calls to runScript from the "errors" package. This results in a
-      -- line being printed to stderr and process termination on a left value.
-      -- Service applications do not have stderr.
-      est <- peekServiceType (pST ptr)
-      ecs <- peekServiceState (pCS ptr)
-      case (,) <$> est <*> ecs of
-        Left e -> do
-          -- runScript would call this on error.
-          hPutStrLn stderr e
-          exitFailure
-        Right (st, cs) -> SERVICE_STATUS st cs
-          <$> (peekServiceAccept . pCA) ptr
-          <*> (peek . pEC) ptr
-          <*> (peek . pSSEC) ptr
-          <*> (peek . pCP) ptr
-          <*> (peek . pWH) ptr
-  poke ptr (SERVICE_STATUS st cs ca ec ssec cp wh) = do
-    pokeServiceType (pST ptr) st
-    pokeServiceState (pCS ptr) cs
-    pokeServiceAccept (pCA ptr) ca
-    poke (pEC ptr) ec
-    poke (pSSEC ptr) ssec
-    poke (pCP ptr) cp
-    poke (pWH ptr) wh
-
-pST, pCS, pCA, pEC, pSSEC, pCP, pWH
-    :: Ptr SERVICE_STATUS -> Ptr DWORD
-
-pST   =                  castPtr
-pCS   = (`plusPtr` 4)  . castPtr
-pCA   = (`plusPtr` 8)  . castPtr
-pEC   = (`plusPtr` 12) . castPtr
-pSSEC = (`plusPtr` 16) . castPtr
-pCP   = (`plusPtr` 20) . castPtr
-pWH   = (`plusPtr` 24) . castPtr
+  sizeOf _ = #{size SERVICE_STATUS}
+  alignment _ = alignment (undefined :: DWORD)
+  peek p = SERVICE_STATUS
+    <$> #{peek SERVICE_STATUS, dwServiceType} p
+    <*> #{peek SERVICE_STATUS, dwCurrentState} p
+    <*> peekServiceAccept (#{ptr SERVICE_STATUS, dwControlsAccepted} p)
+    <*> #{peek SERVICE_STATUS, dwWin32ExitCode} p
+    <*> #{peek SERVICE_STATUS, dwServiceSpecificExitCode} p
+    <*> #{peek SERVICE_STATUS, dwCheckPoint} p
+    <*> #{peek SERVICE_STATUS, dwWaitHint} p
+  poke p x = do
+    #{poke SERVICE_STATUS, dwServiceType} p $ serviceType x
+    #{poke SERVICE_STATUS, dwCurrentState} p $ currentState x
+    pokeServiceAccept (#{ptr SERVICE_STATUS, dwControlsAccepted} p) $ controlsAccepted x
+    #{poke SERVICE_STATUS, dwWin32ExitCode} p $ win32ExitCode x
+    #{poke SERVICE_STATUS, dwServiceSpecificExitCode} p $ serviceSpecificExitCode x
+    #{poke SERVICE_STATUS, dwCheckPoint} p $ checkPoint x
+    #{poke SERVICE_STATUS, dwWaitHint} p $ waitHint x

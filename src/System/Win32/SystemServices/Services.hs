@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 module System.Win32.SystemServices.Services
     ( HandlerFunction
     , ServiceMainFunction
@@ -7,8 +8,20 @@ module System.Win32.SystemServices.Services
     , SERVICE_CONTROL (..)
     , SERVICE_ERROR (..)
     , SERVICE_STATE (..)
+    , pattern SERVICE_CONTINUE_PENDING
+    , pattern SERVICE_PAUSE_PENDING
+    , pattern SERVICE_PAUSED
+    , pattern SERVICE_RUNNING
+    , pattern SERVICE_START_PENDING
+    , pattern SERVICE_STOP_PENDING
+    , pattern SERVICE_STOPPED
     , SERVICE_STATUS (..)
     , SERVICE_TYPE (..)
+    , pattern SERVICE_FILE_SYSTEM_DRIVER
+    , pattern SERVICE_KERNEL_DRIVER
+    , pattern SERVICE_WIN32_OWN_PROCESS
+    , pattern SERVICE_WIN32_SHARE_PROCESS
+    , pattern SERVICE_INTERACTIVE_PROCESS
     , FromDWORD (..)
     , EnumServiceState (..)
     , EnumServiceStatus (..)
@@ -28,7 +41,7 @@ module System.Win32.SystemServices.Services
     ) where
 
 import Control.Exception
-import Control.Monad (when, unless)
+import Control.Monad (unless)
 import Control.Monad.Fix
 import Foreign.C.String (peekCWString)
 
@@ -230,7 +243,7 @@ toSMF f handler wh = return $ \len pLPTSTR -> do
     -- MSDN guarantees args will have at least 1 member.
     let name = head args
     (h, fpHandler) <- registerServiceCtrlHandlerEx name handler
-    setServiceStatus h $ SERVICE_STATUS WIN32_OWN_PROCESS START_PENDING [] nO_ERROR 0 0 wh
+    setServiceStatus h $ SERVICE_STATUS SERVICE_WIN32_OWN_PROCESS SERVICE_START_PENDING [] nO_ERROR 0 0 wh
     f name (tail args) h
     freeHaskellFunPtr fpHandler
 

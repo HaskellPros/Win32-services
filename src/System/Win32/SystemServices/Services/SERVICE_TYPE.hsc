@@ -1,0 +1,22 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving, PatternSynonyms #-}
+module System.Win32.SystemServices.Services.SERVICE_TYPE
+    ( SERVICE_TYPE (..)
+    , pattern SERVICE_FILE_SYSTEM_DRIVER
+    , pattern SERVICE_KERNEL_DRIVER
+    , pattern SERVICE_WIN32_OWN_PROCESS
+    , pattern SERVICE_WIN32_SHARE_PROCESS
+    , pattern SERVICE_INTERACTIVE_PROCESS
+    ) where
+
+import Import
+
+newtype SERVICE_TYPE = SERVICE_TYPE { unServiceType :: DWORD }
+  deriving (Eq, Bits, Storable, Show)
+
+#include <Windows.h>
+
+pattern SERVICE_FILE_SYSTEM_DRIVER = SERVICE_TYPE #{const SERVICE_FILE_SYSTEM_DRIVER}
+pattern SERVICE_KERNEL_DRIVER = SERVICE_TYPE #{const SERVICE_KERNEL_DRIVER}
+pattern SERVICE_WIN32_OWN_PROCESS = SERVICE_TYPE #{const SERVICE_WIN32_OWN_PROCESS}
+pattern SERVICE_WIN32_SHARE_PROCESS = SERVICE_TYPE #{const SERVICE_WIN32_SHARE_PROCESS}
+pattern SERVICE_INTERACTIVE_PROCESS = SERVICE_TYPE #{const SERVICE_INTERACTIVE_PROCESS}
