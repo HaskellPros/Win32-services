@@ -25,10 +25,12 @@ module System.Win32.SystemServices.Services
     , FromDWORD (..)
     , EnumServiceState (..)
     , EnumServiceStatus (..)
+    , SERVICE_CONFIG (..)
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
     , changeServiceConfig
     , changeServiceConfigDependencies
+    , queryServiceConfig
     , closeServiceHandle
     , controlService
     , openSCManagerDef
@@ -62,6 +64,7 @@ import System.Win32.SystemServices.Services.SERVICE_STATUS
 import System.Win32.SystemServices.Services.SERVICE_TABLE_ENTRY
 import System.Win32.SystemServices.Services.SERVICE_TYPE
 import qualified System.Win32.SystemServices.Services.SERVICE_OPTIONAL as SO
+import System.Win32.SystemServices.Services.QUERY_SERVICE_CONFIG
 import System.Win32.SystemServices.Services.Types
 
 -- | A handler function is registered with the service dispatcher thread
@@ -121,6 +124,20 @@ withCWStringList ss fun =
         poke p wNUL
         fun ptr
 
+peekCWStringList :: LPCWSTR -> IO [String]
+peekCWStringList pStr = do
+  str <- peekCWString pStr
+  let
+    wsize = sizeOf (undefined :: CWchar)
+    len = length str * wsize
+
+  if len == 0
+    then return []
+    else do
+      strs <- peekCWStringList $ pStr `plusPtr` (len + wsize)
+      return $ str:strs
+
+
 changeServiceConfig :: HANDLE -> DWORD -> DWORD -> DWORD -> Maybe String -> Maybe String -> LPDWORD -> Maybe [String] -> Maybe String -> Maybe String -> Maybe String -> IO ()
 changeServiceConfig h svcType startType errCtl path' loadOrderGrp' tag srvDeps' startName' pass' displayname' =
   withCWString' path' $ \path ->
@@ -136,6 +153,54 @@ changeServiceConfigDependencies :: HANDLE -> [String] -> IO ()
 changeServiceConfigDependencies h dependsOnSvcs =
   let snc = SO.toDWORD SO.SERVICE_NO_CHANGE
   in changeServiceConfig h snc snc snc Nothing Nothing nullPtr (Just dependsOnSvcs) Nothing Nothing Nothing
+
+data SERVICE_CONFIG = SERVICE_CONFIG
+  { scServiceType       :: Int
+  , scStartType         :: Int
+  , scErrorControl      :: Int
+  , scBinaryPathName    :: String
+  , scLoadOrderGroup    :: String
+  , scTagId             :: Int
+  , scDependencies      :: [String]
+  , scServiceStartName  :: String
+  , scDisplayName       :: String
+  } deriving (Show)
+
+fromRawServiceConfig :: QUERY_SERVICE_CONFIG -> IO SERVICE_CONFIG
+fromRawServiceConfig config = do
+  bpn <- peekCWString     $ rawBinaryPathName config
+  ogr <- peekCWString     $ rawLoadOrderGroup config
+  dep <- peekCWStringList $ rawDependencies config
+  ssn <- peekCWString     $ rawServiceStartName config
+  sdn <- peekCWString     $ rawDisplayName config
+  return SERVICE_CONFIG
+    { scServiceType      = fromIntegral $ rawServiceType  config
+    , scStartType        = fromIntegral $ rawStartType    config
+    , scErrorControl     = fromIntegral $ rawErrorControl config
+    , scBinaryPathName   = bpn
+    , scLoadOrderGroup   = ogr
+    , scTagId            = fromIntegral $ rawTagId config
+    , scDependencies     = dep
+    , scServiceStartName = ssn
+    , scDisplayName      = sdn
+    }
+
+failIfTrue_ :: String -> IO Bool -> IO ()
+failIfTrue_ s b = do
+  b' <- b
+  failIfFalse_ s $ return $ not b'
+
+queryServiceConfig :: HANDLE -> IO SERVICE_CONFIG
+queryServiceConfig h =
+  alloca $ \pBufSize -> do
+    failIfTrue_ (unwords ["queryServiceConfig", "get buffer size"]) $
+      c_QueryServiceConfig h nullPtr 0 pBufSize
+    bufSize <- peek pBufSize
+    allocaBytes (fromIntegral bufSize) $ \pConfig -> do
+      failIfFalse_ (unwords ["queryServiceConfig", "get actual config", "buf size is", show bufSize]) $
+        c_QueryServiceConfig h pConfig bufSize pBufSize
+      config <- peek pConfig
+      fromRawServiceConfig config
 
 closeServiceHandle :: HANDLE -> IO ()
 closeServiceHandle =
