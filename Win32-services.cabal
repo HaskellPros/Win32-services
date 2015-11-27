@@ -127,3 +127,4 @@ library
                , System.Win32.SystemServices.Services.SERVICE_TYPE
                , System.Win32.SystemServices.Services.SCM_ACCESS_RIGHTS
                , System.Win32.SystemServices.Services.SVC_ACCESS_RIGHTS
+               , System.Win32.SystemServices.Services.SERVICE_OPTIONAL

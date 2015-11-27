@@ -27,6 +27,8 @@ module System.Win32.SystemServices.Services
     , EnumServiceStatus (..)
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
+    , changeServiceConfig
+    , changeServiceConfigDependencies
     , closeServiceHandle
     , controlService
     , openSCManagerDef
@@ -41,9 +43,11 @@ module System.Win32.SystemServices.Services
     ) where
 
 import Control.Exception
-import Control.Monad (unless)
+import Control.Monad (unless, forM_)
 import Control.Monad.Fix
-import Foreign.C.String (peekCWString)
+import Data.IORef
+import Foreign.C.Types  (CWchar)
+import Foreign.C.String (CWString, peekCWString, withCWString, withCWStringLen)
 
 import Import
 import System.Win32.SystemServices.Services.Raw
@@ -57,6 +61,7 @@ import System.Win32.SystemServices.Services.SERVICE_STATE
 import System.Win32.SystemServices.Services.SERVICE_STATUS
 import System.Win32.SystemServices.Services.SERVICE_TABLE_ENTRY
 import System.Win32.SystemServices.Services.SERVICE_TYPE
+import qualified System.Win32.SystemServices.Services.SERVICE_OPTIONAL as SO
 import System.Win32.SystemServices.Services.Types
 
 -- | A handler function is registered with the service dispatcher thread
@@ -76,6 +81,61 @@ type HandlerFunction = HANDLE -> SERVICE_CONTROL -> IO Bool
 --   initialization steps before setting the service's status to
 --   'RUNNING'. All of this should take no more than 100ms.
 type ServiceMainFunction = String -> [String] -> HANDLE -> IO ()
+
+withCWString' :: Maybe String -> (CWString -> IO a) -> IO a
+withCWString' (Just s) f = withCWString s f
+withCWString' Nothing  f = f nullPtr
+
+withCWStringList' :: Maybe [String] -> (CWString -> IO a) -> IO a
+withCWStringList' (Just ss) f = withCWStringList ss f
+withCWStringList' Nothing   f = f nullPtr
+
+wNUL :: CWchar
+wNUL = 0
+
+withCWStringList :: [String] -> (CWString -> IO a) -> IO a
+withCWStringList ss fun =
+  let
+    wsize = sizeOf (undefined :: CWchar)
+    size' = if (length ss) == 0
+      then 0
+      else foldl (+) 0 $ map (\s -> length s + 1) ss
+
+    size = (size' + 1) * wsize
+  in
+    allocaBytes size $ \ptr ->
+      do
+        pRef <- newIORef ptr
+        forM_ ss $ \s ->
+          withCWStringLen s $ \(p', l') -> do
+            let l = l' * wsize
+            p <- readIORef pRef
+
+            copyBytes p p' l
+            let nulPos = p `plusPtr` l
+
+            poke nulPos wNUL
+            writeIORef pRef $ nulPos `plusPtr` wsize
+
+        p <- readIORef pRef
+        poke p wNUL
+        fun ptr
+
+changeServiceConfig :: HANDLE -> DWORD -> DWORD -> DWORD -> Maybe String -> Maybe String -> LPDWORD -> Maybe [String] -> Maybe String -> Maybe String -> Maybe String -> IO ()
+changeServiceConfig h svcType startType errCtl path' loadOrderGrp' tag srvDeps' startName' pass' displayname' =
+  withCWString' path' $ \path ->
+    withCWString' loadOrderGrp' $ \loadOrderGrp ->
+      withCWStringList' srvDeps' $ \srvDeps ->
+        withCWString' startName' $ \startName ->
+          withCWString' pass' $ \pass ->
+            withCWString' displayname' $ \displayname ->
+              failIfFalse_ (unwords ["changeServiceConfig"]) $
+                c_ChangeServiceConfig h svcType startType errCtl path loadOrderGrp tag srvDeps startName pass displayname
+
+changeServiceConfigDependencies :: HANDLE -> [String] -> IO ()
+changeServiceConfigDependencies h dependsOnSvcs =
+  let snc = SO.toDWORD SO.SERVICE_NO_CHANGE
+  in changeServiceConfig h snc snc snc Nothing Nothing nullPtr (Just dependsOnSvcs) Nothing Nothing Nothing
 
 closeServiceHandle :: HANDLE -> IO ()
 closeServiceHandle =
