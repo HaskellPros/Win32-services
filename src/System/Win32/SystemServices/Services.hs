@@ -17,11 +17,17 @@ module System.Win32.SystemServices.Services
     , pattern SERVICE_STOPPED
     , SERVICE_STATUS (..)
     , SERVICE_TYPE (..)
+    , SERVICE_START_TYPE(..)
     , pattern SERVICE_FILE_SYSTEM_DRIVER
     , pattern SERVICE_KERNEL_DRIVER
     , pattern SERVICE_WIN32_OWN_PROCESS
     , pattern SERVICE_WIN32_SHARE_PROCESS
     , pattern SERVICE_INTERACTIVE_PROCESS
+    , pattern SERVICE_AUTO_START
+    , pattern SERVICE_BOOT_START
+    , pattern SERVICE_DEMAND_START
+    , pattern SERVICE_DISABLED
+    , pattern SERVICE_SYSTEM_START
     , FromDWORD (..)
     , EnumServiceState (..)
     , EnumServiceStatus (..)
@@ -30,6 +36,7 @@ module System.Win32.SystemServices.Services
     , eRROR_SERVICE_SPECIFIC_ERROR
     , changeServiceConfig
     , changeServiceConfigDependencies
+    , changeServiceConfigStartType
     , queryServiceConfig
     , closeServiceHandle
     , controlService
@@ -65,6 +72,7 @@ import System.Win32.SystemServices.Services.SERVICE_TABLE_ENTRY
 import System.Win32.SystemServices.Services.SERVICE_TYPE
 import qualified System.Win32.SystemServices.Services.SERVICE_OPTIONAL as SO
 import System.Win32.SystemServices.Services.QUERY_SERVICE_CONFIG
+import System.Win32.SystemServices.Services.SERVICE_START_TYPE
 import System.Win32.SystemServices.Services.Types
 
 -- | A handler function is registered with the service dispatcher thread
@@ -153,6 +161,11 @@ changeServiceConfigDependencies :: HANDLE -> [String] -> IO ()
 changeServiceConfigDependencies h dependsOnSvcs =
   let snc = SO.toDWORD SO.SERVICE_NO_CHANGE
   in changeServiceConfig h snc snc snc Nothing Nothing nullPtr (Just dependsOnSvcs) Nothing Nothing Nothing
+
+changeServiceConfigStartType :: HANDLE -> DWORD -> IO ()
+changeServiceConfigStartType h startType =
+  let snc = SO.toDWORD SO.SERVICE_NO_CHANGE in
+  changeServiceConfig h snc startType snc Nothing Nothing nullPtr Nothing Nothing Nothing Nothing
 
 data SERVICE_CONFIG = SERVICE_CONFIG
   { scServiceType       :: Int
