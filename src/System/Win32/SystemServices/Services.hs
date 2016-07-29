@@ -4,6 +4,8 @@ module System.Win32.SystemServices.Services
     , ServiceMainFunction
     , SCM_ACCESS_RIGHTS (..)
     , SVC_ACCESS_RIGHTS (..)
+    , sarFromDword
+    , sarToDword
     , SERVICE_ACCEPT (..)
     , SERVICE_CONTROL (..)
     , SERVICE_ERROR (..)
