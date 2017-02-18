@@ -30,13 +30,21 @@ module System.Win32.SystemServices.Services
     , pattern SERVICE_DEMAND_START
     , pattern SERVICE_DISABLED
     , pattern SERVICE_SYSTEM_START
+    , SERVICE_ERROR_CONTROL (..)
+    , pattern SERVICE_ERROR_CRITICAL
+    , pattern SERVICE_ERROR_IGNORE
+    , pattern SERVICE_ERROR_NORMAL
+    , pattern SERVICE_ERROR_SEVERE
     , FromDWORD (..)
     , EnumServiceState (..)
     , EnumServiceStatus (..)
     , SERVICE_CONFIG (..)
+    , ServiceConfig (..)
+    , defServiceConfig
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
     , changeServiceConfig
+    , changeServiceConfig'
     , changeServiceConfigDependencies
     , changeServiceConfigStartType
     , queryServiceConfig
@@ -67,6 +75,7 @@ import System.Win32.SystemServices.Services.SVC_ACCESS_RIGHTS as SV
 import System.Win32.SystemServices.Services.SERVICE_ACCEPT
 import System.Win32.SystemServices.Services.SERVICE_CONTROL
 import System.Win32.SystemServices.Services.SERVICE_ERROR
+import System.Win32.SystemServices.Services.SERVICE_ERROR_CONTROL
 import qualified System.Win32.SystemServices.Services.SERVICE_CONTROL as SC
 import System.Win32.SystemServices.Services.SERVICE_STATE
 import System.Win32.SystemServices.Services.SERVICE_STATUS
@@ -147,6 +156,30 @@ peekCWStringList pStr = do
       strs <- peekCWStringList $ pStr `plusPtr` (len + wsize)
       return $ str:strs
 
+data ServiceConfig = ServiceConfig
+  { cscServiceType      :: Maybe SERVICE_TYPE
+  , cscStartType        :: Maybe SERVICE_START_TYPE
+  , cscErrorControl     :: Maybe SERVICE_ERROR_CONTROL
+  , cscBinaryPathName   :: Maybe String
+  , cscLoadOrderGroup   :: Maybe String
+  , cscDependencies     :: Maybe [String]
+  , cscServiceStartName :: Maybe String
+  , cscPassword         :: Maybe String
+  , cscDisplayName      :: Maybe String
+  }
+
+defServiceConfig :: ServiceConfig
+defServiceConfig = ServiceConfig
+  { cscServiceType = Nothing
+  , cscStartType = Nothing
+  , cscErrorControl = Nothing
+  , cscBinaryPathName = Nothing
+  , cscLoadOrderGroup = Nothing
+  , cscDependencies = Nothing
+  , cscServiceStartName = Nothing
+  , cscPassword = Nothing
+  , cscDisplayName = Nothing
+  }
 
 changeServiceConfig :: HANDLE -> DWORD -> DWORD -> DWORD -> Maybe String -> Maybe String -> LPDWORD -> Maybe [String] -> Maybe String -> Maybe String -> Maybe String -> IO ()
 changeServiceConfig h svcType startType errCtl path' loadOrderGrp' tag srvDeps' startName' pass' displayname' =
@@ -158,6 +191,21 @@ changeServiceConfig h svcType startType errCtl path' loadOrderGrp' tag srvDeps' 
             withCWString' displayname' $ \displayname ->
               failIfFalse_ (unwords ["changeServiceConfig"]) $
                 c_ChangeServiceConfig h svcType startType errCtl path loadOrderGrp tag srvDeps startName pass displayname
+
+changeServiceConfig' :: HANDLE -> ServiceConfig -> IO ()
+changeServiceConfig' h c =
+  let snc = SO.toDWORD SO.SERVICE_NO_CHANGE
+  in  changeServiceConfig h
+        (maybe snc unServiceType $ cscServiceType c)
+        (maybe snc unServiceStartType $ cscStartType c)
+        (maybe snc unServiceErrorControl $ cscErrorControl c)
+        (cscBinaryPathName c)
+        (cscLoadOrderGroup c)
+        nullPtr
+        (cscDependencies c)
+        (cscServiceStartName c)
+        (cscPassword c)
+        (cscDisplayName c)
 
 changeServiceConfigDependencies :: HANDLE -> [String] -> IO ()
 changeServiceConfigDependencies h dependsOnSvcs =

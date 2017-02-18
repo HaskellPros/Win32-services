@@ -1,0 +1,20 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving, PatternSynonyms #-}
+module System.Win32.SystemServices.Services.SERVICE_ERROR_CONTROL
+  ( SERVICE_ERROR_CONTROL (..)
+  , pattern SERVICE_ERROR_CRITICAL
+  , pattern SERVICE_ERROR_IGNORE
+  , pattern SERVICE_ERROR_NORMAL
+  , pattern SERVICE_ERROR_SEVERE
+  ) where
+
+import Import
+
+newtype SERVICE_ERROR_CONTROL = SERVICE_ERROR_CONTROL { unServiceErrorControl :: DWORD }
+  deriving (Eq, Bits, Storable, Show)
+
+#include <Windows.h>
+
+pattern SERVICE_ERROR_CRITICAL = SERVICE_ERROR_CONTROL #{const SERVICE_ERROR_CRITICAL}
+pattern SERVICE_ERROR_IGNORE = SERVICE_ERROR_CONTROL #{const SERVICE_ERROR_IGNORE}
+pattern SERVICE_ERROR_NORMAL = SERVICE_ERROR_CONTROL #{const SERVICE_ERROR_NORMAL}
+pattern SERVICE_ERROR_SEVERE = SERVICE_ERROR_CONTROL #{const SERVICE_ERROR_SEVERE}
