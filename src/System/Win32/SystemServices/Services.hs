@@ -41,8 +41,12 @@ module System.Win32.SystemServices.Services
     , SERVICE_CONFIG (..)
     , ServiceConfig (..)
     , defServiceConfig
+    , CreateServiceOpts (..)
+    , defCreateServiceOpts
     , nO_ERROR
     , eRROR_SERVICE_SPECIFIC_ERROR
+    , createService
+    , createService'
     , changeServiceConfig
     , changeServiceConfig'
     , changeServiceConfigDependencies
@@ -155,6 +159,113 @@ peekCWStringList pStr = do
     else do
       strs <- peekCWStringList $ pStr `plusPtr` (len + wsize)
       return $ str:strs
+-- |Creates a service object and adds it to the specified service control manager database.
+createService :: HANDLE
+    -- ^ MSDN documentation: A handle to the service control manager database.
+    -- This handle is returned by the OpenSCManager function and must have
+    -- the SC_MANAGER_CREATE_SERVICE access right.
+    -> String
+    -- ^ MSDN documentation: The name of the service to install.
+    -- The maximum string length is 256 characters.
+    -> Maybe String
+    -- ^ MSDN documentation: The display name to be used by user interface
+    -- programs to identify the service. This string has a maximum length
+    -- of 256 characters. The name is case-preserved in the service control
+    -- manager. Display name comparisons are always case-insensitive.
+    -> DWORD
+    -- ^ MSDN documentation: The access to the service. Before granting
+    -- the requested access, the system checks the access token of
+    -- the calling process.
+    -> DWORD
+    -- ^ MSDN documentation: The service type.
+    -> DWORD
+    -- ^ MSDN documentation: The service start options.
+    -> DWORD
+    -- ^ MSDN documentation: The severity of the error, and action taken,
+    -- if this service fails to start.
+    -> Maybe String
+    -- ^ MSDN documentation: The fully qualified path to the service binary
+    -- file. If the path contains a space, it must be quoted so that it is
+    -- correctly interpreted.
+    -> Maybe String
+    -- ^ MSDN documentation: he names of the load ordering group of which
+    -- this service is a member.
+    -> LPDWORD
+    -- ^ MSDN documentation: A pointer to a variable that receives
+    -- a tag value that is unique in the group specified in
+    -- the lpLoadOrderGroup parameter.
+    -> Maybe [String]
+    -- ^ List of services or load ordering groups that the system must
+    -- start before this service. Dependency on a group means that this
+    -- service can run if at least one member of the group is running after
+    -- an attempt to start all members of the group.
+    -> Maybe String
+    -- ^ MSDN documentation: The name of the account under which the service
+    -- should run. If the service type is SERVICE_WIN32_OWN_PROCESS, use
+    -- an account name in the form DomainName\UserName. The service process
+    -- will be logged on as this user. If the account belongs to
+    -- the built-in domain, you can specify .\UserName.
+    -> Maybe String
+    -- ^ MSDN documentation: The password to the account name specified by
+    -- the lpServiceStartName parameter. Specify an empty string if
+    -- the account has no password or if the service runs in the LocalService,
+    -- NetworkService, or LocalSystem account.
+    -> IO HANDLE
+    -- ^ If the function succeeds, the return value is a handle to the service.
+    -- This function will raise an exception if the Win32 call returned an
+    -- error condition.
+createService h name' displayName' ar svcType startType errCtl binPath' loadOrderGrp' tagId deps' startName' pass' =
+  withCWString name' $ \name ->
+  withCWString' displayName' $ \displayName ->
+  withCWString' binPath' $ \binPath ->
+  withCWString' loadOrderGrp' $ \loadOrderGrp ->
+  withCWStringList' deps' $ \deps ->
+  withCWString' startName' $ \startName ->
+  withCWString' pass' $ \pass ->
+    failIfNull (unwords ["CreateService", name']) $
+      c_CreateService h name displayName ar svcType startType errCtl binPath loadOrderGrp tagId deps startName pass
+
+data CreateServiceOpts = CreateServiceOpts
+  { createSvcDisplayName    :: Maybe String
+  , createSvcDesiredAccess  :: SVC_ACCESS_RIGHTS
+  , createSvcServiceType    :: SERVICE_TYPE
+  , createSvcStartType      :: SERVICE_START_TYPE
+  , createSvcErrorControl   :: SERVICE_ERROR_CONTROL
+  , createSvcBinaryPath     :: Maybe String
+  , createSvcLoadOrderGroup :: Maybe String
+  , createSvcDependencies   :: Maybe [String]
+  , createSvcStartName      :: Maybe String
+  , createSvcPassword       :: Maybe String
+  }
+
+defCreateServiceOpts :: CreateServiceOpts
+defCreateServiceOpts = CreateServiceOpts
+  { createSvcDisplayName = Nothing
+  , createSvcDesiredAccess = SVC_AR_ALL_ACCESS
+  , createSvcServiceType = SERVICE_WIN32_OWN_PROCESS
+  , createSvcStartType = SERVICE_AUTO_START
+  , createSvcErrorControl = SERVICE_ERROR_NORMAL
+  , createSvcBinaryPath = Nothing
+  , createSvcLoadOrderGroup = Nothing
+  , createSvcDependencies = Nothing
+  , createSvcStartName = Nothing
+  , createSvcPassword = Nothing
+  }
+
+createService' :: HANDLE -> String -> CreateServiceOpts -> IO HANDLE
+createService' h name o =
+  createService h name
+    (createSvcDisplayName o)
+    (SV.toDWORD $ createSvcDesiredAccess o)
+    (unServiceType $ createSvcServiceType o)
+    (unServiceStartType $ createSvcStartType o)
+    (unServiceErrorControl $ createSvcErrorControl o)
+    (createSvcBinaryPath o)
+    (createSvcLoadOrderGroup o)
+    nullPtr
+    (createSvcDependencies o)
+    (createSvcStartName o)
+    (createSvcPassword o)
 
 data ServiceConfig = ServiceConfig
   { cscServiceType      :: Maybe SERVICE_TYPE

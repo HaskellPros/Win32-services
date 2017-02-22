@@ -15,6 +15,24 @@ foreign import stdcall "wrapper"
 foreign import stdcall "wrapper"
     handlerToFunPtr :: HANDLER_FUNCTION_EX -> IO LPHANDLER_FUNCTION_EX
 
+-- SC_HANDLE WINAPI CreateService(
+--   _In_      SC_HANDLE hSCManager,
+--   _In_      LPCTSTR   lpServiceName,
+--   _In_opt_  LPCTSTR   lpDisplayName,
+--   _In_      DWORD     dwDesiredAccess,
+--   _In_      DWORD     dwServiceType,
+--   _In_      DWORD     dwStartType,
+--   _In_      DWORD     dwErrorControl,
+--   _In_opt_  LPCTSTR   lpBinaryPathName,
+--   _In_opt_  LPCTSTR   lpLoadOrderGroup,
+--   _Out_opt_ LPDWORD   lpdwTagId,
+--   _In_opt_  LPCTSTR   lpDependencies,
+--   _In_opt_  LPCTSTR   lpServiceStartName,
+--   _In_opt_  LPCTSTR   lpPassword
+-- );
+foreign import stdcall "windows.h CreateServiceW"
+  c_CreateService :: HANDLE -> LPCWSTR -> LPCWSTR -> DWORD -> DWORD -> DWORD -> DWORD -> LPCWSTR -> LPCWSTR -> LPDWORD -> LPCWSTR -> LPCWSTR -> LPCWSTR -> IO HANDLE
+
 -- BOOL WINAPI ChangeServiceConfig(
 --   _In_      SC_HANDLE hService,
 --   _In_      DWORD     dwServiceType,
